@@ -1,11 +1,10 @@
 import readline from "readline";
 import dotenv from "dotenv";
-import { CreateIndex, DeleteIndex, IndexExists, ListIndexes, LoadBulkSampleDataToIndex, SearchByAgeRanges } from "./azure-ai-search-service"; // Ensure this is the correct path and file name
+import { CreateIndex, DeleteIndex, IndexExists, ListIndexes, LoadBulkSampleDataToIndex, SearchByAgeRanges, SearchByTimeFrames } from "./azure-ai-search-service"; // Ensure this is the correct path and file name
 import path from "path";
 import { ReadJsonFile } from "./helpers";
 import { SearchIndex } from "@azure/search-documents";
-
-const chalk = require("chalk");
+import chalk from "chalk";
 
 // Load environment variables from .env and .env.local
 dotenv.config();
@@ -44,7 +43,7 @@ async function handleListAllIndexes(): Promise<void> {
     if (indexNames.length > 0) {
       console.log(indexNames.length + " index(es) found: ");
       indexNames.forEach((indexName) => {
-        printSuccessMessage(`- ${indexName}`);
+        printSuccessMessage(`* ${indexName}`);
       });
     } else {
       printSuccessMessage("No indexes found.");
@@ -133,18 +132,34 @@ function exitProgram(): void {
   process.exit(0);
 }
 
+// age ranges based on date of birth
 function handleQueryForAgeRanges(): void {
   rl.question("Enter index name: ", async (indexName: string) => {
-    try {
-      await SearchByAgeRanges(indexName);
-      displayMenu();
-    } catch (error: any) {
-      printErrorMessage("An error occurred while querying age ranges: " + error.message);
-      displayMenu();
-    }
+    rl.question("Enter the ages (comma-separated; ex: 18-25,35-45) to query: ", async (ranges: string) => {
+      try {
+        await SearchByAgeRanges(indexName, ranges);
+        displayMenu();
+      } catch (error: any) {
+        printErrorMessage("An error occurred while querying age ranges: " + error.message);
+        displayMenu();
+      }
+    });
+  });
+}
+
+function handleQueryForTimeFrames(): void {
+  rl.question("Enter index name: ", async (indexName: string) => {
+    rl.question("Enter the time frames (comma-separated; ex: today,yesterday,lastMonth) to query: ", async (ranges: string) => {
+      try {
+        await SearchByTimeFrames(indexName, ranges);
+        displayMenu();
+      } catch (error: any) {
+        printErrorMessage("An error occurred while querying age ranges: " + error.message);
+        displayMenu();
+      }
+    });
   });
 
-  
 }
 
 const menuOptions = [
@@ -158,6 +173,8 @@ const menuOptions = [
   /* these are for exploring ability to make query for date ranges */
   // age ranges based on date of birth
   { option: "7", text: "Query for age ranges based on date of birth", handler: handleQueryForAgeRanges },
+  // time frames based on createdAt (such as today, yesterday, lastWeek, lastMonth, lastYear)
+  { option: "8", text: "Query for time frames based on createdAt", handler: handleQueryForTimeFrames },
 ];
 
 async function handleInput(option: string): Promise<void> {
