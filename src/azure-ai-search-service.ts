@@ -1,4 +1,5 @@
 import { AzureKeyCredential, SearchIndexClient } from "@azure/search-documents";
+import { format, subYears } from "date-fns";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -13,6 +14,16 @@ if (!endpoint || !searchAPIKey) {
 
 const credentials = new AzureKeyCredential(searchAPIKey);
 const searchIndexClient = new SearchIndexClient(endpoint, credentials);
+
+// list all indexes
+export const ListIndexes = async () => {
+  const indexes = searchIndexClient.listIndexes();
+  let indexNames: string[] = [];
+  for await (const index of indexes) {
+    indexNames.push(index.name);
+  }
+  return indexNames;
+};
 
 // check if index exists
 export const IndexExists = async (indexName: string) => {
@@ -58,11 +69,49 @@ export const UpdateIndexDefinition = async (indexDefinition: any) => {
 
   await searchIndexClient.createOrUpdateIndex(indexDefinition);
   return indexName;
-}
+};
 
 // index document
 
-// 
+// load sample data
+const LoadASampleDocumentToIndex = async (sampleData: any, indexName: string) => {
+  const searchClient = searchIndexClient.getSearchClient(indexName);
+  await searchClient.mergeOrUploadDocuments([document]);
+};
 
+// load bulk sample data
+export const LoadBulkSampleDataToIndex = async (sampleData: any[], indexName: string) => {
+  const searchClient = searchIndexClient.getSearchClient(indexName);
+  await searchClient.mergeOrUploadDocuments(sampleData);
+};
 
-// search
+// search by age ranges
+function getDateFromAge(age: number): string {
+  const now = new Date();
+  return format(subYears(now, age), "yyyy-MM-dd'T'HH:mm:ss'Z'");
+}
+
+const facetQuery = [
+  `identityDetails/dateOfBirth,values:
+  ${getDateFromAge(65)}
+  |${getDateFromAge(55)}
+  |${getDateFromAge(45)}
+  |${getDateFromAge(35)}
+  |${getDateFromAge(25)}
+  |${getDateFromAge(18)}`,
+];
+
+export async function SearchByAgeRanges(indexName: string) {
+  const searchOptions = {
+    facets: facetQuery,
+  };
+
+  const searchClient = searchIndexClient.getSearchClient(indexName);
+  const searchResults = await searchClient.search("*", searchOptions);
+  console.log(searchResults.facets);
+
+  for await (const result of searchResults.results) {
+    console.log(result);
+  }
+
+}

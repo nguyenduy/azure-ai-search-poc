@@ -145,7 +145,7 @@
     },
     {
       "name": "schemaVersion",
-      "type": "Edm.String",
+      "type": "Edm.Double",
       "searchable": false,
       "filterable": true,
       "sortable": true,

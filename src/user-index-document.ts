@@ -174,6 +174,6 @@ export interface UserIndexDocument {
   createdAt: string;
   updatedAt: string;
   externalId: string;
-  _id: string;
-  schemaVersion: string;
+  id: string;
+  schemaVersion: number;
 }
