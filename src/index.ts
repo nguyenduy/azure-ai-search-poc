@@ -149,7 +149,7 @@ function handleQueryForAgeRanges(): void {
 
 function handleQueryForTimeFrames(): void {
   rl.question("Enter index name: ", async (indexName: string) => {
-    rl.question("Enter the time frames (comma-separated; ex: today,yesterday,lastMonth) to query: ", async (ranges: string) => {
+    rl.question("Enter the time frames (comma-separated; default: today,lastWeek,lastMonth,lastYear) to query: ", async (ranges: string) => {
       try {
         await SearchByTimeFrames(indexName, ranges);
         displayMenu();
@@ -159,7 +159,6 @@ function handleQueryForTimeFrames(): void {
       }
     });
   });
-
 }
 
 const menuOptions = [

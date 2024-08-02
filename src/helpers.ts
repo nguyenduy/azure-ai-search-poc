@@ -27,3 +27,9 @@ export function AreSameBirthdays(a: string, b: string): boolean {
   const dateB = new Date(b);
   return dateA.getFullYear() === dateB.getFullYear() && dateA.getMonth() === dateB.getMonth() && dateA.getDate() === dateB.getDate();
 }
+
+export function CompareDates(a: string, b: string): number {
+  const dateA = new Date(a);
+  const dateB = new Date(b);
+  return dateA.getTime() - dateB.getTime();
+}

@@ -1,7 +1,7 @@
 import { AzureKeyCredential, SearchIndexClient } from "@azure/search-documents";
 import { format, subDays, subYears } from "date-fns";
 import dotenv from "dotenv";
-import { AreSameBirthdays, getDateFromAge } from "./helpers";
+import { AreSameBirthdays as AreSameDates, CompareDates, getDateFromAge } from "./helpers";
 
 dotenv.config();
 dotenv.config({ path: `.env.local`, override: true });
@@ -126,7 +126,7 @@ export async function SearchByAgeRanges(indexName: string, ageRangeInput: string
     for (const facet of searchResults.facets["identityDetails/dateOfBirth"]) {
       const ageRange = Object.keys(dateRangesFromAgeRanges).find((key) => {
         const range = dateRangesFromAgeRanges[key];
-        return (!range.from || AreSameBirthdays(range.from, facet.from)) && AreSameBirthdays(range.to, facet.to);
+        return (!range.from || AreSameDates(range.from, facet.from)) && AreSameDates(range.to, facet.to);
       });
       if (ageRange) {
         facetsByAgeRange[ageRange] = facet.count;
@@ -145,20 +145,21 @@ export async function SearchByAgeRanges(indexName: string, ageRangeInput: string
 
 // search by date ranges (today, yesterday, last week, last month, last year) on createdAt field
 export async function SearchByTimeFrames(indexName: string, timeFramesInput: string) {
-  const timeFrames = timeFramesInput.split(",").reverse(); // ["today", "yesterday", "lastWeek", "lastMonth", "lastYear"]
+
+  const timeFrames = timeFramesInput ? timeFramesInput.split(",").reverse() : "lastYear,lastMonth,lastWeek,today".split(','); // ["today", "lastWeek", "lastMonth", "lastYear"]
   // get date ranges for time frames
   const now = new Date();
   const timeFrameToDate: { [key: string]: string } = {
     today: format(now, "yyyy-MM-dd'T'00:00:00'Z'"),
-    yesterday: format(subDays(now, 1), "yyyy-MM-dd'T'00:00:00'Z'"),
+    // yesterday: format(subDays(now, 1), "yyyy-MM-dd'T'00:00:00'Z'"),
     lastWeek: format(subDays(now, 7), "yyyy-MM-dd'T'00:00:00'Z'"),
     lastMonth: format(subDays(now, 30), "yyyy-MM-dd'T'00:00:00'Z'"),
     lastYear: format(subDays(now, 365), "yyyy-MM-dd'T'00:00:00'Z'"),
   };
-  
+
   const dateRanges: { [key: string]: { from?: string; to?: string } } = {
     today: { from: timeFrameToDate["today"] },
-    yesterday: { from: timeFrameToDate["yesterday"], to: timeFrameToDate["today"] },
+    // yesterday: { from: timeFrameToDate["yesterday"], to: timeFrameToDate["today"] },
     lastWeek: { from: timeFrameToDate["lastWeek"], to: timeFrameToDate["today"] },
     lastMonth: { from: timeFrameToDate["lastMonth"], to: timeFrameToDate["today"] },
     lastYear: { from: timeFrameToDate["lastYear"], to: timeFrameToDate["today"] },
@@ -170,10 +171,28 @@ export async function SearchByTimeFrames(indexName: string, timeFramesInput: str
     dateRangesFromTimeFrames[timeFrame] = dateRanges[timeFrame];
   });
 
-  // create facet query
-  const facetQuery = [`createdAt,values:${timeFrames.map((timeFrame) => timeFrameToDate[timeFrame]).join("|")}`];
+  // search
+  const facetQuery = [`createdAt,values:${timeFrames.map((timeFrame) => timeFrameToDate[timeFrame]).join("|")}|${timeFrameToDate["today"]}`];
   const searchOptions = { facets: facetQuery };
   const searchClient = searchIndexClient.getSearchClient(indexName);
   const searchResults = await searchClient.search("*", searchOptions);
+
+  const facetsByTimeFrame: { [key: string]: any } = {};
+  if (searchResults.facets) {
+    // add up count if the date from and to of a facet falls within the time frame
+    for (const facet of searchResults.facets.createdAt) {
+      const matchedTimeFrames = Object.keys(dateRangesFromTimeFrames).filter((key) => {
+        const range = dateRangesFromTimeFrames[key];
+        return (!range.from || CompareDates(facet.from, range.from) >= 0) && (!range.to || CompareDates(facet.to, range.to) <= 0);
+      });
+      if (matchedTimeFrames.length > 0) {
+        matchedTimeFrames.forEach((timeFrame) => {
+          facetsByTimeFrame[timeFrame] = (facetsByTimeFrame[timeFrame] || 0) + facet.count;
+        });
+      }
+    }
+  }
+
+  console.log(facetsByTimeFrame);
   console.log(searchResults.facets);
 }

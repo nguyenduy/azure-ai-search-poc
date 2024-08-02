@@ -1,5 +1,5 @@
 {
-  "name": "user-index",
+  "name": "user",
   "fields": [
     {
       "name": "userType",
